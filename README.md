@@ -1,0 +1,114 @@
+# dicom4dicomxphits
+
+`dicom4dicomxphits` is the private, data-only companion repository for
+[`inata169/dicomxphits`](https://github.com/inata169/dicomxphits). It contains
+anonymized, non-patient water-phantom DICOM examples for education, research,
+and local workflow validation.
+
+> [!WARNING]
+> These files are not for diagnosis, treatment planning, clinical
+> commissioning, patient QA, or any other clinical use. They do not establish
+> the clinical validity of `dicomxphits`, PHITS, RT-PHITS, or any treatment
+> machine model.
+
+日本語: このリポジトリは `dicomxphits` の研究・教育用 DICOM データ置き場です。
+患者データを追加しないでください。臨床目的には使用できません。
+
+## Repository contents
+
+Each case is self-contained:
+
+```text
+<case>/
+├─ CT/
+│  ├─ CT000001.dcm
+│  └─ ...
+├─ RTPLAN.dcm
+└─ RTDOSE/
+   ├─ RTDOSE_PLAN.dcm
+   └─ RTDOSE_BEAMnnn.dcm   # present in selected cases
+```
+
+| Case | CT | RT Plan | RT Dose | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `PHITSgeoTest` | 71 | 1 | 7 | Geometry and multi-beam examples |
+| `WaterPhantom-golden8` | 71 | 1 | 9 | Eight-field reference data and a coordinate-fixed derivative |
+| `WaterPhantom03x03` | 71 | 1 | 1 | Centered 3 x 3 cm2 field |
+| `WaterPhantom05x05` | 71 | 1 | 1 | Centered 5 x 5 cm2 field |
+| `WaterPhantom10x10` | 71 | 1 | 1 | Centered 10 x 10 cm2 field |
+| `WaterPhantom20x20` | 71 | 1 | 1 | Centered 20 x 20 cm2 field |
+
+The repository currently contains 452 DICOM files (426 CT, 6 RT Plan, and 20
+RT Dose files). File names intentionally omit DICOM UIDs that existed in the
+source names. DICOM references are stored inside the files and do not depend on
+the repository file names.
+
+## Use with dicomxphits
+
+Clone this repository separately from `dicomxphits`. Select a case's `CT`
+directory and its `RTPLAN.dcm` in the guided Windows workflow, or pass them to
+the corresponding command-line adapter. Keep generated workspaces and licensed
+PHITS/RT-PHITS files outside both repositories.
+
+Example paths:
+
+```text
+<data-root>/WaterPhantom10x10/CT/
+<data-root>/WaterPhantom10x10/RTPLAN.dcm
+```
+
+Follow the current instructions and safety gates in the
+[`dicomxphits` README](https://github.com/inata169/dicomxphits#readme).
+
+## Privacy and integrity checks
+
+Before the initial commit, all 452 files were parsed with pydicom without
+reading external resources. The audit found:
+
+- dummy identity values such as `ANONYMOUS` and synthetic phantom identifiers;
+- no private DICOM elements;
+- no overlay elements;
+- no non-empty address, telephone, accession, operator, or device serial fields;
+- uniform water-phantom pixels without visible burned-in text in representative
+  CT slices;
+- internally consistent Study and Frame of Reference UIDs within each case;
+- RT Dose references that resolve to the RT Plan in the same case.
+
+Source instance/reference UIDs were replaced with consistent anonymous UIDs.
+The remaining `InstanceCreatorUID` identifies the creating implementation's
+organization root, not a patient or study instance.
+
+This is evidence for the present files, not a guarantee for future additions.
+Run the repository audit and checksum verification before every upload:
+
+```powershell
+py -3.12 -m pip install -r requirements-audit.txt
+py -3.12 scripts/audit_dicom.py --check-checksums
+```
+
+The audit fails on known direct identifiers, private or overlay elements,
+unexpected identity values, broken case references, checksum mismatches, and
+files at or above GitHub's 100 MiB hard limit. A missing `BurnedInAnnotation`
+tag is reported as a warning because these source files omit it; contributors
+must still inspect representative pixels.
+
+The coordinate-fixed derivative in `WaterPhantom-golden8` has its own SOP
+Instance UID so it can be distinguished from its source beam-dose object.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) before adding or replacing data. If you
+discover possible identifying information, follow [SECURITY.md](SECURITY.md)
+and do not post it in a public issue.
+
+## Storage policy
+
+DICOM files are marked as binary in `.gitattributes`. Git LFS is not required
+for the current snapshot: the largest file is below 7 MiB and no file approaches
+GitHub's 100 MiB per-file limit. Reconsider storage before adding a large new
+series; do not split, archive, or rewrite DICOM solely to bypass a hosting limit.
+
+## License
+
+No license is currently granted for these data. Access to the repository does
+not by itself grant permission to redistribute or use the data beyond applicable
+law and explicit permission from the repository owner. The software in
+`dicomxphits` has its own license.

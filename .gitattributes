@@ -1,0 +1,7 @@
+* text=auto
+
+*.dcm binary
+*.md text eol=lf
+*.py text eol=lf
+*.txt text eol=lf
+MANIFEST.sha256 text eol=lf
