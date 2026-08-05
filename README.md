@@ -86,6 +86,14 @@ py -3.12 -m pip install -r requirements-audit.txt
 py -3.12 scripts/audit_dicom.py --check-checksums
 ```
 
+The `DICOM audit` GitHub Actions workflow runs the same checksum, privacy, and
+referential-integrity checks on every pull request to `main`, every push to
+`main`, and manual dispatch. It uses read-only repository permissions. For a
+pull request, the workflow executes the audit implementation and dependency
+definition from the target branch, so changing the checker in the same pull
+request cannot approve unchecked DICOM data. Merge audit-policy changes before
+submitting data that depends on them.
+
 The audit fails on known direct identifiers, private or overlay elements,
 unexpected identity values, broken case references, checksum mismatches, and
 files at or above GitHub's 100 MiB hard limit. A missing `BurnedInAnnotation`
