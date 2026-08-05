@@ -11,8 +11,10 @@ and local workflow validation.
 > the clinical validity of `dicomxphits`, PHITS, RT-PHITS, or any treatment
 > machine model.
 
-日本語: このリポジトリは `dicomxphits` の研究・教育用 DICOM データ置き場です。
-患者データを追加しないでください。臨床目的には使用できません。
+This repository is for research and educational DICOM data used by
+`dicomxphits`. Do not add patient data or use these files clinically.
+
+See [docs/HANDOFF.md](docs/HANDOFF.md) for the current development status.
 
 ## Repository contents
 
