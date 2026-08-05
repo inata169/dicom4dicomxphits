@@ -25,7 +25,7 @@ Each case is self-contained:
 │  └─ ...
 ├─ RTPLAN.dcm
 └─ RTDOSE/
-   ├─ RTDOSE_PLAN.dcm
+   ├─ RTDOSE_TOTAL.dcm  # total plan dose (DICOM DoseSummationType = PLAN)
    └─ RTDOSE_BEAMnnn.dcm   # present in selected cases
 ```
 
