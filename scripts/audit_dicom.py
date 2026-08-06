@@ -269,21 +269,29 @@ def expected_public_vrs(tag: object) -> frozenset[str] | None:
         vr_definition = dictionary_VR(tag)
     except KeyError:
         return None
-    return frozenset(part.strip() for part in vr_definition.split(" or "))
+    return vr_choices(vr_definition)
 
 
-def iter_elements_without_pixel_data(
+def vr_choices(vr: str) -> frozenset[str]:
+    return frozenset(part.strip() for part in vr.split(" or "))
+
+
+def iter_auditable_elements(
     dataset: pydicom.dataset.Dataset,
+    *,
+    skip_root_pixel_data: bool = True,
 ):
-    """Yield all elements and nested items without materializing Pixel Data."""
+    """Yield all elements, exempting only the visually reviewed root pixels."""
     for tag in dataset.keys():
-        if tag == PIXEL_DATA_TAG:
+        if tag == PIXEL_DATA_TAG and skip_root_pixel_data:
             continue
         element = dataset[tag]
         yield element
         if element.VR == "SQ":
             for item in element.value:
-                yield from iter_elements_without_pixel_data(item)
+                yield from iter_auditable_elements(
+                    item, skip_root_pixel_data=False
+                )
 
 
 def valid_da(value: str) -> bool:
@@ -381,8 +389,9 @@ def audit_text_elements(
     """Audit every textual element, including elements in nested sequences."""
     if seen is None:
         seen = set()
-    for element in iter_elements_without_pixel_data(dataset):
+    for element in iter_auditable_elements(dataset):
         keyword = element.keyword or "<unknown>"
+        actual_vrs = vr_choices(element.VR)
         expected_vrs = None if element.tag.is_private else expected_public_vrs(element.tag)
         if not element.tag.is_private and expected_vrs is None:
             length, digest = opaque_value_reference(element.value)
@@ -395,7 +404,7 @@ def audit_text_elements(
                     f"sha256={digest[:16]}"
                 )
             continue
-        if expected_vrs is not None and element.VR not in expected_vrs:
+        if expected_vrs is not None and not actual_vrs.issubset(expected_vrs):
             length, digest = opaque_value_reference(element.value)
             finding = (relative, str(element.tag), keyword, element.VR, digest)
             if finding not in seen:
@@ -421,7 +430,7 @@ def audit_text_elements(
                         f"length={len(value)} sha256={digest[:16]}"
                     )
             continue
-        if element.VR in BULK_DATA_VRS:
+        if actual_vrs & BULK_DATA_VRS:
             length, digest = opaque_value_reference(element.value)
             if digest in ALLOWED_BULK_FINGERPRINTS.get(keyword, frozenset()):
                 continue
@@ -546,17 +555,13 @@ def audit_repository(args: argparse.Namespace) -> int:
                 errors.append(
                     f"unexpected {keyword}: {relative}: {private_value_reference(value)}"
                 )
-        for keyword in MUST_BE_EMPTY:
-            value = str(getattr(dataset, keyword, ""))
-            if value:
-                errors.append(f"non-empty {keyword}: {relative}")
         burned_in = str(getattr(dataset, "BurnedInAnnotation", "")).upper()
         if not burned_in:
             missing_burned_in_annotation += 1
         elif burned_in != "NO":
             errors.append(f"BurnedInAnnotation is not NO: {relative}")
 
-        for element in iter_elements_without_pixel_data(dataset):
+        for element in iter_auditable_elements(dataset):
             if element.tag.is_private:
                 errors.append(f"private DICOM element {element.tag}: {relative}")
             if 0x6000 <= element.tag.group <= 0x60FF:

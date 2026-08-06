@@ -48,6 +48,7 @@ class TextAuditTests(unittest.TestCase):
         dataset.PatientName = "ANONYMOUS"
         dataset.StudyDate = "19000101"
         dataset.BurnedInAnnotation = "NO"
+        dataset.PregnancyStatus = None
         dataset.SliceThickness = None
         dataset.SOPClassUID = CTImageStorage
         dataset.SOPInstanceUID = generate_uid()
@@ -155,6 +156,20 @@ class TextAuditTests(unittest.TestCase):
         self.assertIn("unapproved DICOM bulk data", errors[0])
         self.assertIn("keyword=EncapsulatedDocument", errors[0])
         self.assertIn("VR=OB", errors[0])
+
+    def test_rejects_nested_pixel_data_but_skips_root_pixel_data(self) -> None:
+        dataset = Dataset()
+        dataset.PixelData = SENTINEL.encode("utf-8")
+        icon = Dataset()
+        icon.PixelData = SENTINEL.encode("utf-8")
+        dataset.IconImageSequence = Sequence([icon])
+
+        errors = self.audit(dataset)
+
+        self.assert_secret_is_redacted(errors)
+        self.assertEqual(1, len(errors))
+        self.assertIn("unapproved DICOM bulk data", errors[0])
+        self.assertRegex(errors[0].lower(), r"tag=\(7fe0,\s*0010\)")
 
     def test_rejects_unreviewed_file_meta_text(self) -> None:
         file_meta = FileMetaDataset()
