@@ -73,13 +73,16 @@ EXPECTED_IDENTITIES = {
 MUST_BE_EMPTY = {
     "AccessionNumber",
     "DeviceSerialNumber",
+    "EthnicGroup",
     "InstitutionAddress",
     "OperatorsName",
     "LastMenstrualDate",
+    "Occupation",
     "PatientAddress",
     "PatientAge",
     "PatientBirthTime",
     "PatientBodyMassIndex",
+    "PatientReligiousPreference",
     "PatientSize",
     "PatientTelephoneNumbers",
     "PatientWeight",
@@ -87,6 +90,8 @@ MUST_BE_EMPTY = {
     "RequestingPhysician",
     "ResponsibleOrganization",
     "ResponsiblePerson",
+    "PregnancyStatus",
+    "SmokingStatus",
 }
 
 ALLOWED_BULK_FINGERPRINTS = {
@@ -402,6 +407,20 @@ def audit_text_elements(
                     f"sha256={digest[:16]}"
                 )
             continue
+        if keyword in MUST_BE_EMPTY:
+            for value in text_values(element.value):
+                if not value:
+                    continue
+                digest = text_fingerprint(value)
+                finding = (relative, str(element.tag), keyword, element.VR, digest)
+                if finding not in seen:
+                    seen.add(finding)
+                    errors.append(
+                        f"non-empty protected DICOM attribute: {relative}: "
+                        f"tag={element.tag} keyword={keyword} VR={element.VR} "
+                        f"length={len(value)} sha256={digest[:16]}"
+                    )
+            continue
         if element.VR in BULK_DATA_VRS:
             length, digest = opaque_value_reference(element.value)
             if digest in ALLOWED_BULK_FINGERPRINTS.get(keyword, frozenset()):
@@ -421,9 +440,7 @@ def audit_text_elements(
             if not value:
                 continue
             digest = text_fingerprint(value)
-            if keyword in MUST_BE_EMPTY:
-                allowed = False
-            elif keyword in EXPECTED_IDENTITIES:
+            if keyword in EXPECTED_IDENTITIES:
                 allowed = value in EXPECTED_IDENTITIES[keyword]
             elif element.VR in STRUCTURED_TEXT_VRS:
                 allowed = structured_text_is_allowed(element.VR, keyword, value)

@@ -131,6 +131,20 @@ class TextAuditTests(unittest.TestCase):
                 self.assertIn(f"keyword={keyword}", errors[0])
                 self.assertIn(f"VR={vr}", errors[0])
 
+    def test_rejects_numeric_patient_characteristic_in_nested_sequence(self) -> None:
+        item = Dataset()
+        item.PregnancyStatus = 4
+        dataset = Dataset()
+        dataset.OriginalAttributesSequence = Sequence([item])
+
+        errors = self.audit(dataset)
+
+        self.assertEqual(1, len(errors))
+        self.assertIn(audit_dicom.text_fingerprint("4")[:16], errors[0])
+        self.assertIn("non-empty protected DICOM attribute", errors[0])
+        self.assertIn("keyword=PregnancyStatus", errors[0])
+        self.assertIn("VR=US", errors[0])
+
     def test_rejects_unreviewed_public_bulk_data(self) -> None:
         dataset = Dataset()
         dataset.EncapsulatedDocument = SENTINEL.encode("utf-8")
