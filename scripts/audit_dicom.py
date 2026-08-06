@@ -12,6 +12,7 @@ import sys
 import warnings
 
 import pydicom
+from pydicom import filereader
 from pydicom.datadict import dictionary_VR
 from pydicom.multival import MultiValue
 from pydicom.tag import Tag
@@ -74,6 +75,7 @@ MUST_BE_EMPTY = {
     "AccessionNumber",
     "DeviceSerialNumber",
     "EthnicGroup",
+    "ExaminedBodyThickness",
     "InstitutionAddress",
     "OperatorsName",
     "LastMenstrualDate",
@@ -365,6 +367,31 @@ def iter_auditable_elements(
                 )
 
 
+class DuplicateDataElementError(Exception):
+    def __init__(self, tag: object):
+        self.tag = tag
+        super().__init__("duplicate DICOM data element")
+
+
+def dcmread_for_audit(path: Path) -> pydicom.dataset.FileDataset:
+    """Read a complete file while rejecting duplicates before dict insertion."""
+    original_generator = filereader.data_element_generator
+
+    def unique_data_element_generator(*args: object, **kwargs: object):
+        seen_tags: set[object] = set()
+        for raw_element in original_generator(*args, **kwargs):
+            if raw_element.tag in seen_tags:
+                raise DuplicateDataElementError(raw_element.tag)
+            seen_tags.add(raw_element.tag)
+            yield raw_element
+
+    filereader.data_element_generator = unique_data_element_generator
+    try:
+        return pydicom.dcmread(path, defer_size=1)
+    finally:
+        filereader.data_element_generator = original_generator
+
+
 def valid_da(value: str) -> bool:
     if not DA_PATTERN.fullmatch(value):
         return False
@@ -606,7 +633,10 @@ def audit_repository(args: argparse.Namespace) -> int:
         try:
             # Parse through EOF so elements after Pixel Data cannot evade the
             # audit. Large values are deferred, and traversal skips Pixel Data.
-            dataset = pydicom.dcmread(path, defer_size=1)
+            dataset = dcmread_for_audit(path)
+        except DuplicateDataElementError as exc:
+            errors.append(f"duplicate DICOM element: {relative}: tag={exc.tag}")
+            continue
         except Exception as exc:
             errors.append(f"cannot parse {relative}: {type(exc).__name__}")
             continue

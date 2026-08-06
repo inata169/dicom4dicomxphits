@@ -4,6 +4,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 import re
+import struct
 import sys
 from tempfile import TemporaryDirectory
 import unittest
@@ -118,8 +119,10 @@ class TextAuditTests(unittest.TestCase):
             ("PatientWeight", "72.5", "DS"),
             ("MeasuredAPDimension", "18.5", "DS"),
             ("MeasuredLateralDimension", "31.5", "DS"),
+            ("ExaminedBodyThickness", 22.5, "FL"),
         ):
             with self.subTest(keyword=keyword):
+                text_value = str(value)
                 item = Dataset()
                 setattr(item, keyword, value)
                 dataset = Dataset()
@@ -128,8 +131,10 @@ class TextAuditTests(unittest.TestCase):
                 errors = self.audit(dataset)
 
                 self.assertEqual(1, len(errors))
-                self.assertNotIn(value, errors[0])
-                self.assertIn(audit_dicom.text_fingerprint(value)[:16], errors[0])
+                self.assertNotIn(text_value, errors[0])
+                self.assertIn(
+                    audit_dicom.text_fingerprint(text_value)[:16], errors[0]
+                )
                 self.assertIn(f"keyword={keyword}", errors[0])
                 self.assertIn(f"VR={vr}", errors[0])
 
@@ -252,6 +257,49 @@ class TextAuditTests(unittest.TestCase):
             self.assert_secret_is_redacted(errors)
             self.assertIn("unknown public DICOM element", errors[0])
             self.assertIs(audited._dict[Tag(0x7FE0, 0x0010)], raw_pixel_data)
+
+    def test_rejects_duplicate_tag_before_dataset_overwrite(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "duplicate.dcm"
+            file_meta = FileMetaDataset()
+            file_meta.MediaStorageSOPClassUID = CTImageStorage
+            file_meta.MediaStorageSOPInstanceUID = generate_uid()
+            file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+            file_meta.ImplementationClassUID = PYDICOM_IMPLEMENTATION_UID
+            dataset = FileDataset(
+                str(path), {}, file_meta=file_meta, preamble=b"\0" * 128
+            )
+            dataset.SOPClassUID = file_meta.MediaStorageSOPClassUID
+            dataset.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
+            dataset.InstitutionName = "ANONYMOUS_INSTIT"
+            dataset.is_implicit_VR = False
+            dataset.is_little_endian = True
+            dataset.save_as(path, write_like_original=False)
+
+            encoded = SENTINEL.encode("ascii")
+            if len(encoded) % 2:
+                encoded += b" "
+            duplicate = (
+                struct.pack("<HH", 0x0008, 0x0080)
+                + b"LO"
+                + struct.pack("<H", len(encoded))
+                + encoded
+            )
+            original = path.read_bytes()
+            approved_element = original.index(b"\x08\x00\x80\x00LO")
+            path.write_bytes(
+                original[:approved_element]
+                + duplicate
+                + original[approved_element:]
+            )
+
+            with self.assertRaises(
+                audit_dicom.DuplicateDataElementError
+            ) as raised:
+                audit_dicom.dcmread_for_audit(path)
+
+        self.assertEqual(Tag(0x0008, 0x0080), raised.exception.tag)
+        self.assertNotIn(SENTINEL, str(raised.exception))
 
     def test_rejects_unapproved_uid_root_without_disclosing_it(self) -> None:
         unapproved_uid = "1.3.6.1.4.1.55555.1"
