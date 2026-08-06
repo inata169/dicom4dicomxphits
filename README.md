@@ -71,8 +71,11 @@ reading external resources. The audit found:
 - no private DICOM elements;
 - no overlay elements;
 - no non-empty address, telephone, accession, operator, or device serial fields;
-- uniform water-phantom pixels without visible burned-in text in representative
-  CT slices;
+- all human-readable string VRs in the main dataset, nested sequences, and File
+  Meta Information checked against tag-specific reviewed values or strict
+  structured-value rules;
+- uniform water-phantom pixels without visible burned-in text in all 71
+  `PHITSgeoTest` CT slices and representative slices from the other series;
 - internally consistent Study and Frame of Reference UIDs within each case;
 - RT Dose references that resolve to the RT Plan in the same case.
 
@@ -85,6 +88,7 @@ Run the repository audit and checksum verification before every upload:
 
 ```powershell
 py -3.12 -m pip install -r requirements-audit.txt
+py -3.12 -m unittest discover -s tests -v
 py -3.12 scripts/audit_dicom.py --check-checksums
 ```
 
@@ -97,10 +101,23 @@ request cannot approve unchecked DICOM data. Merge audit-policy changes before
 submitting data that depends on them.
 
 The audit fails on known direct identifiers, private or overlay elements,
-unexpected identity values, broken case references, checksum mismatches, and
-files at or above GitHub's 100 MiB hard limit. A missing `BurnedInAnnotation`
-tag is reported as a warning because these source files omit it; contributors
-must still inspect representative pixels.
+unexpected identity values, unreviewed free text or AE Titles, unknown UID
+roots, broken case references, checksum mismatches, and files at or above
+GitHub's 100 MiB hard limit. DICOM dates and times require tag-specific reviewed
+fingerprints as well as valid VR syntax; numeric strings are checked for their
+VR-specific syntax. UID definition fields are limited to registered DICOM
+standard values; instance/reference fields require the anonymization root, with
+an exact reviewed implementation exception. This applies to
+nested sequences and File Meta as well as top-level tags, so newly added DICOM
+files use the same fail-closed policy.
+
+Audit failures identify the file, tag, keyword, VR, value length, and a shortened
+SHA-256 fingerprint without printing the header value. Treat an unapproved value
+as confidential: verify its provenance privately before changing the policy,
+and never copy it into source, tests, workflow configuration, logs, README text,
+or a public issue. A missing `BurnedInAnnotation` tag is reported as a warning
+because these source files omit it; contributors must still inspect
+representative pixels.
 
 The coordinate-fixed derivative in `WaterPhantom-golden8` has its own SOP
 Instance UID so it can be distinguished from its source beam-dose object.
@@ -116,9 +133,14 @@ for the current snapshot: the largest file is below 7 MiB and no file approaches
 GitHub's 100 MiB per-file limit. Reconsider storage before adding a large new
 series; do not split, archive, or rewrite DICOM solely to bypass a hosting limit.
 
-## License
+## Data use terms
 
-No license is currently granted for these data. Access to the repository does
-not by itself grant permission to redistribute or use the data beyond applicable
-law and explicit permission from the repository owner. The software in
-`dicomxphits` has its own license.
+The DICOM files may be used only for non-clinical education, research, and local
+workflow validation with `dicomxphits`. Redistribution or republication as a
+separate dataset, unrelated general-purpose use, commercial distribution, and
+clinical use are not permitted. GitHub-hosted viewing and forks remain subject
+to GitHub's Terms of Service.
+
+See [DATA_USE_TERMS.md](DATA_USE_TERMS.md) for the complete terms. No Creative
+Commons, MIT, or other general-purpose open license is granted for the DICOM
+files. The software in `dicomxphits` has its own license.

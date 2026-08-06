@@ -56,3 +56,9 @@ jobs:
 
       - name: Audit DICOM privacy and integrity
         run: python .trusted/audit_dicom.py --check-checksums
+
+      - name: Audit with proposed implementation
+        run: python scripts/audit_dicom.py --check-checksums
+
+      - name: Test proposed audit implementation
+        run: python -m unittest discover -s tests -v
