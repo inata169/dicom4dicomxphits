@@ -286,7 +286,48 @@ ALLOWED_TEXT_FINGERPRINTS = {
     ),
     "SpecificCharacterSet": frozenset({"3484aff0aa43236e2ea0c5635005843a92b985c0e487475e663e63d790d92653"}),
     "StationName": frozenset({"2cd8e3f88432c8307c90cbf44694d636f6ca6e6ebeb600b45765dd5ef6347185"}),
-    "StudyDescription": fçÎ­¢G§²ÚîÆ­yÞ tuple[int, str]:
+    "StudyDescription": frozenset(
+        """ae84d27d259c61d655967e0758a2671999dd0deb733ef5de89749f041f609d24
+        b9a23605b1825e29372b043bc998e508e177042869c82e436e8fb274dbac84a4""".split()
+    ),
+    "StudyID": frozenset(
+        """b1c6d20d4da3f375a6ace10bbd196224f496001353a9e81110348209ecc85f78
+        f33ad84452593b3df8401571bb6ac99f173e40fa704b898c3cb48270171bff3b""".split()
+    ),
+    "TableTopEccentricRotationDirection": frozenset({"c627c09c14e58e44bc51622dac392958ec88244e414b508020634f53cfcd1e69"}),
+    "TissueHeterogeneityCorrection": frozenset({"556728f7f45600acafc8914a6b4f1d2bfb607385b1fe49e2c74e7ef657171dee"}),
+    "ToleranceTableLabel": frozenset({"ef915c05396a0b76088b564cc13439c3554c6d9aec732968dce72e315578d1d0"}),
+    "TreatmentDeliveryType": frozenset({"a41297525ca556ff593ce37b720994c8cc83c1fe4dcdfa803cca3420f01ff5f2"}),
+    "TreatmentMachineName": frozenset({"9e5c9e49d50dc679b79343cd97637865d05adca380d9ee92d8ba53dfd7571080"}),
+}
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def text_values(value: object) -> list[str]:
+    if isinstance(value, (MultiValue, list, tuple)):
+        return ["" if item is None else str(item).strip() for item in value]
+    if value is None:
+        return [""]
+    return [str(value).strip()]
+
+
+def text_fingerprint(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8", "surrogatepass")).hexdigest()
+
+
+def private_value_reference(value: object) -> str:
+    normalized = str(value).strip()
+    return f"length={len(normalized)} sha256={text_fingerprint(normalized)[:16]}"
+
+
+def opaque_value_reference(value: object) -> tuple[int, str]:
     encoded = value if isinstance(value, bytes) else str(value).encode("utf-8", "surrogatepass")
     return len(encoded), hashlib.sha256(encoded).hexdigest()
 
