@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+import re
 import sys
 from tempfile import TemporaryDirectory
 import unittest
@@ -61,7 +62,7 @@ class TextAuditTests(unittest.TestCase):
         errors = self.audit(dataset)
 
         self.assert_secret_is_redacted(errors)
-        self.assertIn("tag=(0008, 1040)", errors[0])
+        self.assertRegex(errors[0], r"tag=\(0008,\s*1040\)")
         self.assertIn("VR=LO", errors[0])
 
     def test_rejects_nonempty_ae_title(self) -> None:
