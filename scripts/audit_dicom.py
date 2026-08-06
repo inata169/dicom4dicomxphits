@@ -77,6 +77,8 @@ MUST_BE_EMPTY = {
     "InstitutionAddress",
     "OperatorsName",
     "LastMenstrualDate",
+    "MeasuredAPDimension",
+    "MeasuredLateralDimension",
     "Occupation",
     "PatientAddress",
     "PatientAge",

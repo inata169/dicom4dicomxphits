@@ -116,6 +116,8 @@ class TextAuditTests(unittest.TestCase):
             ("PatientBirthTime", "123456", "TM"),
             ("PatientAge", "037Y", "AS"),
             ("PatientWeight", "72.5", "DS"),
+            ("MeasuredAPDimension", "18.5", "DS"),
+            ("MeasuredLateralDimension", "31.5", "DS"),
         ):
             with self.subTest(keyword=keyword):
                 item = Dataset()
