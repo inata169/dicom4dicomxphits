@@ -12,6 +12,7 @@ import sys
 import warnings
 
 import pydicom
+from pydicom.datadict import dictionary_VR
 from pydicom.multival import MultiValue
 from pydicom.uid import PYDICOM_ROOT_UID
 
@@ -241,6 +242,15 @@ def opaque_value_reference(value: object) -> tuple[int, str]:
     return len(encoded), hashlib.sha256(encoded).hexdigest()
 
 
+def expected_public_vrs(tag: object) -> frozenset[str] | None:
+    """Return the standard VR choices for a public tag, or None if unknown."""
+    try:
+        vr_definition = dictionary_VR(tag)
+    except KeyError:
+        return None
+    return frozenset(part.strip() for part in vr_definition.split(" or "))
+
+
 def valid_da(value: str) -> bool:
     if not DA_PATTERN.fullmatch(value):
         return False
@@ -338,14 +348,28 @@ def audit_text_elements(
         seen = set()
     for element in dataset.iterall():
         keyword = element.keyword or "<unknown>"
-        if element.VR == "UN" and not element.tag.is_private:
+        expected_vrs = None if element.tag.is_private else expected_public_vrs(element.tag)
+        if not element.tag.is_private and expected_vrs is None:
             length, digest = opaque_value_reference(element.value)
             finding = (relative, str(element.tag), keyword, element.VR, digest)
             if finding not in seen:
                 seen.add(finding)
                 errors.append(
                     f"unknown public DICOM element: {relative}: tag={element.tag} "
-                    f"keyword={keyword} VR=UN length={length} sha256={digest[:16]}"
+                    f"keyword={keyword} VR={element.VR} length={length} "
+                    f"sha256={digest[:16]}"
+                )
+            continue
+        if expected_vrs is not None and element.VR not in expected_vrs:
+            length, digest = opaque_value_reference(element.value)
+            finding = (relative, str(element.tag), keyword, element.VR, digest)
+            if finding not in seen:
+                seen.add(finding)
+                errors.append(
+                    f"DICOM VR mismatch: {relative}: tag={element.tag} "
+                    f"keyword={keyword} VR={element.VR} "
+                    f"expected={'/'.join(sorted(expected_vrs))} length={length} "
+                    f"sha256={digest[:16]}"
                 )
             continue
         if element.VR not in HUMAN_READABLE_VRS:

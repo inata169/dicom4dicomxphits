@@ -105,6 +105,37 @@ class TextAuditTests(unittest.TestCase):
         self.assertIn("unknown public DICOM element", errors[0])
         self.assertIn("VR=UN", errors[0])
 
+    def test_rejects_unknown_public_structured_element(self) -> None:
+        disguised_token = "20250101"
+        dataset = Dataset()
+        dataset.add_new((0x7776, 0x0012), "DA", disguised_token)
+
+        errors = self.audit(dataset)
+
+        self.assertEqual(1, len(errors))
+        self.assertNotIn(disguised_token, errors[0])
+        self.assertIn(
+            audit_dicom.text_fingerprint(disguised_token)[:16], errors[0]
+        )
+        self.assertIn("unknown public DICOM element", errors[0])
+        self.assertIn("VR=DA", errors[0])
+
+    def test_rejects_public_tag_vr_mismatch(self) -> None:
+        disguised_token = "20250101"
+        dataset = Dataset()
+        dataset.add_new((0x0008, 0x0080), "DA", disguised_token)
+
+        errors = self.audit(dataset)
+
+        self.assertEqual(1, len(errors))
+        self.assertNotIn(disguised_token, errors[0])
+        self.assertIn(
+            audit_dicom.text_fingerprint(disguised_token)[:16], errors[0]
+        )
+        self.assertIn("DICOM VR mismatch", errors[0])
+        self.assertIn("keyword=InstitutionName", errors[0])
+        self.assertIn("VR=DA expected=LO", errors[0])
+
     def test_rejects_unapproved_uid_root_without_disclosing_it(self) -> None:
         unapproved_uid = "1.3.6.1.4.1.55555.1"
         dataset = Dataset()
