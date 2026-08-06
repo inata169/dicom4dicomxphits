@@ -46,6 +46,12 @@ HUMAN_READABLE_VRS = {
 STRUCTURED_TEXT_VRS = {"AS", "DA", "DS", "DT", "IS", "TM", "UI"}
 BULK_DATA_VRS = {"OB", "OD", "OF", "OL", "OV", "OW"}
 VENDOR_INSTANCE_CREATOR_UID = "2.16.840.1.114337"
+STANDARD_UID_KEYWORDS = {
+    "MediaStorageSOPClassUID",
+    "ReferencedSOPClassUID",
+    "SOPClassUID",
+    "TransferSyntaxUID",
+}
 
 AS_PATTERN = re.compile(r"^\d{3}[DWMY]$")
 DA_PATTERN = re.compile(r"^\d{8}$")
@@ -470,11 +476,11 @@ def structured_text_is_allowed(vr: str, keyword: str, value: str) -> bool:
     if vr == "UI":
         if len(value) > 64 or not UI_PATTERN.fullmatch(value):
             return False
-        return (
-            value in UID_dictionary
-            or value.startswith(PYDICOM_ROOT_UID)
-            or (keyword == "InstanceCreatorUID" and value == VENDOR_INSTANCE_CREATOR_UID)
-        )
+        if keyword in STANDARD_UID_KEYWORDS:
+            return value in UID_dictionary
+        if keyword == "InstanceCreatorUID":
+            return value == VENDOR_INSTANCE_CREATOR_UID
+        return value.startswith(PYDICOM_ROOT_UID)
     raise AssertionError(f"unhandled structured text VR: {vr}")
 
 

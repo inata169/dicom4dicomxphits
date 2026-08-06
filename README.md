@@ -105,8 +105,9 @@ unexpected identity values, unreviewed free text or AE Titles, unknown UID
 roots, broken case references, checksum mismatches, and files at or above
 GitHub's 100 MiB hard limit. DICOM dates and times require tag-specific reviewed
 fingerprints as well as valid VR syntax; numeric strings are checked for their
-VR-specific syntax. UIDs are limited to registered DICOM standard values,
-the anonymization root, and the reviewed implementation value. This applies to
+VR-specific syntax. UID definition fields are limited to registered DICOM
+standard values; instance/reference fields require the anonymization root, with
+an exact reviewed implementation exception. This applies to
 nested sequences and File Meta as well as top-level tags, so newly added DICOM
 files use the same fail-closed policy.
 

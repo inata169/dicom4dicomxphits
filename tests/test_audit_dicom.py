@@ -327,6 +327,20 @@ class TextAuditTests(unittest.TestCase):
         )
         self.assertIn("VR=UI", errors[0])
 
+    def test_rejects_registered_definition_uid_in_instance_field(self) -> None:
+        dataset = Dataset()
+        dataset.StudyInstanceUID = CTImageStorage
+
+        errors = self.audit(dataset)
+
+        self.assertEqual(1, len(errors))
+        self.assertNotIn(str(CTImageStorage), errors[0])
+        self.assertIn(
+            audit_dicom.text_fingerprint(str(CTImageStorage))[:16], errors[0]
+        )
+        self.assertIn("keyword=StudyInstanceUID", errors[0])
+        self.assertIn("VR=UI", errors[0])
+
     def test_rejects_unreviewed_clinical_timestamp(self) -> None:
         unreviewed_date = "20250101"
         dataset = Dataset()
