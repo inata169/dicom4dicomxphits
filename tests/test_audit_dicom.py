@@ -106,6 +106,18 @@ class TextAuditTests(unittest.TestCase):
         self.assertIn(audit_dicom.text_fingerprint(unapproved_uid)[:16], errors[0])
         self.assertIn("VR=UI", errors[0])
 
+    def test_rejects_zero_padded_uid_component(self) -> None:
+        self.assertFalse(
+            audit_dicom.structured_text_is_allowed(
+                "UI", "SOPClassUID", "1.2.840.10008.01"
+            )
+        )
+        self.assertTrue(
+            audit_dicom.structured_text_is_allowed(
+                "UI", "SOPClassUID", "1.2.840.10008.1"
+            )
+        )
+
     def test_validates_calendar_and_clock_ranges(self) -> None:
         for vr, value in (
             ("DA", "20250229"),

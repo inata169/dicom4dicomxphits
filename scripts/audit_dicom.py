@@ -51,7 +51,7 @@ DT_PATTERN = re.compile(
 )
 IS_PATTERN = re.compile(r"^[+-]?\d+$")
 TM_PATTERN = re.compile(r"^\d{2}(?:\d{2}(?:\d{2}(?:\.\d{1,6})?)?)?$")
-UI_PATTERN = re.compile(r"^[0-9]+(?:\.[0-9]+)*$")
+UI_PATTERN = re.compile(r"^(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*))*$")
 EXPECTED_MODALITIES = Counter({"CT": 426, "RTDOSE": 20, "RTPLAN": 6})
 
 EXPECTED_IDENTITIES = {
