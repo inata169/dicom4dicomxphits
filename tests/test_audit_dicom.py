@@ -8,6 +8,7 @@ import sys
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
+import warnings
 
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
 from pydicom.sequence import Sequence
@@ -94,6 +95,16 @@ class TextAuditTests(unittest.TestCase):
         self.assert_secret_is_redacted(errors)
         self.assertIn("keyword=ImplementationVersionName", errors[0])
 
+    def test_rejects_unknown_public_un_element_without_disclosing_it(self) -> None:
+        dataset = Dataset()
+        dataset.add_new((0x7776, 0x0010), "UN", SENTINEL.encode("utf-8"))
+
+        errors = self.audit(dataset)
+
+        self.assert_secret_is_redacted(errors)
+        self.assertIn("unknown public DICOM element", errors[0])
+        self.assertIn("VR=UN", errors[0])
+
     def test_rejects_unapproved_uid_root_without_disclosing_it(self) -> None:
         unapproved_uid = "1.3.6.1.4.1.55555.1"
         dataset = Dataset()
@@ -124,6 +135,8 @@ class TextAuditTests(unittest.TestCase):
             ("DT", "20250231235959"),
             ("DT", "20240229240000"),
             ("DT", "20240229235959+1401"),
+            ("IS", "2147483648"),
+            ("IS", "999999999999"),
             ("TM", "246000"),
             ("TM", "235961"),
         ):
@@ -136,6 +149,8 @@ class TextAuditTests(unittest.TestCase):
             ("DA", "20240229"),
             ("DT", "2024"),
             ("DT", "20240229235960-1200"),
+            ("IS", "-2147483648"),
+            ("IS", "2147483647"),
             ("TM", "23"),
             ("TM", "235960.123456"),
         ):
@@ -169,9 +184,20 @@ class TextAuditTests(unittest.TestCase):
 
             stdout = StringIO()
             stderr = StringIO()
+            original_audit_text_elements = audit_dicom.audit_text_elements
+
+            def warn_during_traversal(*args: object, **kwargs: object) -> None:
+                warnings.warn(SENTINEL)
+                original_audit_text_elements(*args, **kwargs)
+
             with (
                 patch.object(audit_dicom, "ROOT", root),
                 patch.object(sys, "argv", ["audit_dicom.py"]),
+                patch.object(
+                    audit_dicom,
+                    "audit_text_elements",
+                    side_effect=warn_during_traversal,
+                ),
                 redirect_stdout(stdout),
                 redirect_stderr(stderr),
             ):

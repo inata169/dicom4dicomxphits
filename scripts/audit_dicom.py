@@ -236,6 +236,11 @@ def private_value_reference(value: object) -> str:
     return f"length={len(normalized)} sha256={text_fingerprint(normalized)[:16]}"
 
 
+def opaque_value_reference(value: object) -> tuple[int, str]:
+    encoded = value if isinstance(value, bytes) else str(value).encode("utf-8", "surrogatepass")
+    return len(encoded), hashlib.sha256(encoded).hexdigest()
+
+
 def valid_da(value: str) -> bool:
     if not DA_PATTERN.fullmatch(value):
         return False
@@ -300,7 +305,11 @@ def structured_text_is_allowed(vr: str, keyword: str, value: str) -> bool:
     if vr == "DT":
         return valid_dt(value)
     if vr == "IS":
-        return len(value) <= 12 and bool(IS_PATTERN.fullmatch(value))
+        return (
+            len(value) <= 12
+            and bool(IS_PATTERN.fullmatch(value))
+            and -(2**31) <= int(value) <= 2**31 - 1
+        )
     if vr == "TM":
         return (
             len(value) <= 16
@@ -328,9 +337,19 @@ def audit_text_elements(
     if seen is None:
         seen = set()
     for element in dataset.iterall():
+        keyword = element.keyword or "<unknown>"
+        if element.VR == "UN" and not element.tag.is_private:
+            length, digest = opaque_value_reference(element.value)
+            finding = (relative, str(element.tag), keyword, element.VR, digest)
+            if finding not in seen:
+                seen.add(finding)
+                errors.append(
+                    f"unknown public DICOM element: {relative}: tag={element.tag} "
+                    f"keyword={keyword} VR=UN length={length} sha256={digest[:16]}"
+                )
+            continue
         if element.VR not in HUMAN_READABLE_VRS:
             continue
-        keyword = element.keyword or "<unknown>"
         for value in text_values(element.value):
             if not value:
                 continue
@@ -389,6 +408,13 @@ def main() -> int:
     parser.add_argument("--check-checksums", action="store_true")
     args = parser.parse_args()
 
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return audit_repository(args)
+
+
+def audit_repository(args: argparse.Namespace) -> int:
+
     files = dicom_files()
     errors: list[str] = []
     audit_warnings: list[str] = []
@@ -406,9 +432,7 @@ def main() -> int:
         if path.stat().st_size >= GITHUB_HARD_LIMIT:
             errors.append(f"file is at or above 100 MiB: {relative}")
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                dataset = pydicom.dcmread(path, stop_before_pixels=True)
+            dataset = pydicom.dcmread(path, stop_before_pixels=True)
         except Exception as exc:
             errors.append(f"cannot parse {relative}: {type(exc).__name__}")
             continue
