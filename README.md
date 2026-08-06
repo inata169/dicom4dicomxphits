@@ -131,9 +131,14 @@ for the current snapshot: the largest file is below 7 MiB and no file approaches
 GitHub's 100 MiB per-file limit. Reconsider storage before adding a large new
 series; do not split, archive, or rewrite DICOM solely to bypass a hosting limit.
 
-## License
+## Data use terms
 
-No license is currently granted for these data. Access to the repository does
-not by itself grant permission to redistribute or use the data beyond applicable
-law and explicit permission from the repository owner. The software in
-`dicomxphits` has its own license.
+The DICOM files may be used only for non-clinical education, research, and local
+workflow validation with `dicomxphits`. Redistribution or republication as a
+separate dataset, unrelated general-purpose use, commercial distribution, and
+clinical use are not permitted. GitHub-hosted viewing and forks remain subject
+to GitHub's Terms of Service.
+
+See [DATA_USE_TERMS.md](DATA_USE_TERMS.md) for the complete terms. No Creative
+Commons, MIT, or other general-purpose open license is granted for the DICOM
+files. The software in `dicomxphits` has its own license.

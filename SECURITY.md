@@ -1,7 +1,8 @@
 # Security and privacy reporting
 
-Possible personal, patient, credential, licensed, or confidential data exposure
-is a security incident for this repository.
+Possible exposure of personal or patient data, credentials, confidential
+information, or third-party data not authorized for public redistribution is a
+security incident for this repository.
 
 Do not include the sensitive value, DICOM header dump, image, or affected file
 in a public GitHub issue. Contact the repository owner privately through an
