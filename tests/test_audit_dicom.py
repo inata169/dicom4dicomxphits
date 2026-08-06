@@ -90,6 +90,23 @@ class TextAuditTests(unittest.TestCase):
         self.assert_secret_is_redacted(errors)
         self.assertIn("keyword=SeriesDescription", errors[0])
 
+    def test_enforces_identity_policy_in_nested_sequence(self) -> None:
+        disguised_birth_date = "20000101"
+        item = Dataset()
+        item.PatientBirthDate = disguised_birth_date
+        dataset = Dataset()
+        dataset.OriginalAttributesSequence = Sequence([item])
+
+        errors = self.audit(dataset)
+
+        self.assertEqual(1, len(errors))
+        self.assertNotIn(disguised_birth_date, errors[0])
+        self.assertIn(
+            audit_dicom.text_fingerprint(disguised_birth_date)[:16], errors[0]
+        )
+        self.assertIn("keyword=PatientBirthDate", errors[0])
+        self.assertIn("VR=DA", errors[0])
+
     def test_rejects_unreviewed_file_meta_text(self) -> None:
         file_meta = FileMetaDataset()
         file_meta.ImplementationVersionName = SENTINEL

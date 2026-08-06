@@ -395,7 +395,9 @@ def audit_text_elements(
             if not value:
                 continue
             digest = text_fingerprint(value)
-            if element.VR in STRUCTURED_TEXT_VRS:
+            if keyword in EXPECTED_IDENTITIES:
+                allowed = value in EXPECTED_IDENTITIES[keyword]
+            elif element.VR in STRUCTURED_TEXT_VRS:
                 allowed = structured_text_is_allowed(element.VR, keyword, value)
             else:
                 allowed = digest in ALLOWED_TEXT_FINGERPRINTS.get(keyword, frozenset())
