@@ -103,11 +103,12 @@ submitting data that depends on them.
 The audit fails on known direct identifiers, private or overlay elements,
 unexpected identity values, unreviewed free text or AE Titles, unknown UID
 roots, broken case references, checksum mismatches, and files at or above
-GitHub's 100 MiB hard limit. DICOM dates, times, and numeric strings are checked
-for their VR-specific syntax; UIDs are limited to reviewed DICOM, anonymization,
-and implementation roots. This applies to nested sequences and File Meta as
-well as top-level tags, so newly added DICOM files use the same fail-closed
-policy.
+GitHub's 100 MiB hard limit. DICOM dates and times require tag-specific reviewed
+fingerprints as well as valid VR syntax; numeric strings are checked for their
+VR-specific syntax. UIDs are limited to registered DICOM standard values,
+the anonymization root, and the reviewed implementation value. This applies to
+nested sequences and File Meta as well as top-level tags, so newly added DICOM
+files use the same fail-closed policy.
 
 Audit failures identify the file, tag, keyword, VR, value length, and a shortened
 SHA-256 fingerprint without printing the header value. Treat an unapproved value

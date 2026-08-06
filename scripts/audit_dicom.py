@@ -15,7 +15,7 @@ import pydicom
 from pydicom.datadict import dictionary_VR
 from pydicom.multival import MultiValue
 from pydicom.tag import Tag
-from pydicom.uid import PYDICOM_ROOT_UID
+from pydicom.uid import PYDICOM_ROOT_UID, UID_dictionary
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -98,6 +98,75 @@ ALLOWED_BULK_FINGERPRINTS = {
     "FileMetaInformationVersion": frozenset(
         {"b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2"}
     ),
+}
+
+# Existing de-identified fixture timestamps are approved per tag by fingerprint.
+# New timestamp values fail closed even when their DA/DT/TM syntax is valid.
+INSTANCE_CREATION_DATE_FINGERPRINTS = frozenset(
+    """2d3ecd804da5d868a9a2918a0ad12813367984b2c49caf6323415999b33e4f9a
+    34b466d3cf3e26747b388412c450470ca6a87ca0ba80f052aef274d5cf58d106
+    36bc61e65df9a293d0f354521bd3c68f2dc225134ba2517fdc8d19443f74ebc6
+    7ca741f9494062c8e6657d79d07a71d44c7c0e321a7f66c001d04cd8d69b9888
+    c0dad314dc6afdb571e034478e96a7ee69bda4b903a7ac5526655a541b3f5894
+    e11895539afe01eaf93e854dc8793acef2915986e1684f0c6f4a16c3553d334f
+    f059deaa883e7f8d96a115b5c16be1e510da942c714eeb8618cf1e96e9ba222f""".split()
+)
+INSTANCE_CREATION_TIME_FINGERPRINTS = frozenset(
+    """0fddc68432424eee3bc100bc7b0c5184f94c3beb3068d2de93825910669f2867
+    1664b05244b7e2773449f5fe7b75f83566f0c94e08f5bb4b98da518ccb75abd4
+    1c4a4dc5d941debcce758550753868a2ac4cb22b6c3475210948e7fd87aff471
+    2e22818cbc67007170976f81568d4693ec1ea0b31c3a1d33001e9cd56c873fb4
+    5e5c60b37556757232725325bf61f33a6d6c430eed70b60c179648e4eddac0e1
+    6851aa4654f994dea13308ccd6e17a2ec947b529153e24291772f32526f9e7f3
+    6cee7c4f765b63e56bd7d427328ad421638e56f1b8da6879f74f6db04bce94b6
+    6db3e16c17015278c6adeaae521e202f90c45a8b5d578a40686d20639420aad1
+    88cd242bc996ab0abdc9e750e0ac7926a6dd8eb177b142d7fbef6a8fa6e73c72
+    8d1665ef70d520e5a03352392dd5398e3b5b190011c7c703cbaab555ff8a2c67
+    953db8b003802d31b79515b01464522bd123cece6a7c83e5dd65fbbf5d6eac9d
+    9fe1e0f70594e7d5309a21acd7bb4cc7ac516466504f5b4f4ad21e84129b6ff8
+    b56c80a8df1b2ffc503e2d6c4de310b162aa9800b5ef469ee12dad28a326c6c7
+    e22a866d8c3df1777ab6967e16bd3b9929771c4aa92fa355817425e872eb142e
+    e8b14d9cbaba04ffc75b404e699243c2763705a34dc857cab3cd53cb5e26a6cd""".split()
+)
+COMMON_DATE_FINGERPRINTS = frozenset(
+    {"2fa0f121daa18de5cdf751c1e6eb5b79ad30358364fff2deb63d7f2b855865de"}
+)
+COMMON_TIME_FINGERPRINTS = frozenset(
+    {"79a49308880c653e1b7a82c8215929e7e3a3dcaa7806718210809172c6ebe03c"}
+)
+RT_PLAN_DATE_FINGERPRINTS = frozenset(
+    """34b466d3cf3e26747b388412c450470ca6a87ca0ba80f052aef274d5cf58d106
+    66cb8df1313805b003818d2580042fcf991cead9940e15c49709494d7a610169
+    7ca741f9494062c8e6657d79d07a71d44c7c0e321a7f66c001d04cd8d69b9888
+    e11895539afe01eaf93e854dc8793acef2915986e1684f0c6f4a16c3553d334f
+    f059deaa883e7f8d96a115b5c16be1e510da942c714eeb8618cf1e96e9ba222f""".split()
+)
+RT_PLAN_TIME_FINGERPRINTS = frozenset(
+    """08fcff9a786025d8a512837db7035a7b8f98c4003294bd8cee0c640ff0bb6b80
+    289b28efbcfc82c4b45a43ff43d0510ff3b2883c5273c8a1fe8f3389bcc13e78
+    3c66d5cd5e02852aff4ddce0081849a55aefc9ae07b8b01b6b8c5eff8f906282
+    634c70adc7a1e4b7ea106237a6bd39971c2fb56baf3035a2492ff072f8adc9e4
+    c0cccdc5e10248094cc37497cb84065cb370a4d4774b64e1616ee00321de0b25
+    d08c4348abe3b9f69781fc8214d149cb3393a6c7d0ff3336f5788f6a80ad75d8""".split()
+)
+ALLOWED_TIMESTAMP_FINGERPRINTS = {
+    "InstanceCreationDate": INSTANCE_CREATION_DATE_FINGERPRINTS,
+    "InstanceCreationTime": INSTANCE_CREATION_TIME_FINGERPRINTS,
+    "StudyDate": COMMON_DATE_FINGERPRINTS,
+    "SeriesDate": COMMON_DATE_FINGERPRINTS,
+    "ContentDate": COMMON_DATE_FINGERPRINTS,
+    "StudyTime": COMMON_TIME_FINGERPRINTS,
+    "SeriesTime": COMMON_TIME_FINGERPRINTS,
+    "AcquisitionTime": COMMON_TIME_FINGERPRINTS,
+    "ContentTime": COMMON_TIME_FINGERPRINTS,
+    "DateOfLastCalibration": frozenset(
+        {"caadcfa145d4c7491a15d9c251c180b8a0a96327693dc0979a75894d24c39264"}
+    ),
+    "TimeOfLastCalibration": frozenset(
+        {"606fd020c6051250eaf82e695d36280d1ed8ca2669730d0114adb73b80f270eb"}
+    ),
+    "RTPlanDate": RT_PLAN_DATE_FINGERPRINTS,
+    "RTPlanTime": RT_PLAN_TIME_FINGERPRINTS,
 }
 
 # Full SHA-256 values keep reviewed fixture strings out of source and CI output.
@@ -217,48 +286,7 @@ ALLOWED_TEXT_FINGERPRINTS = {
     ),
     "SpecificCharacterSet": frozenset({"3484aff0aa43236e2ea0c5635005843a92b985c0e487475e663e63d790d92653"}),
     "StationName": frozenset({"2cd8e3f88432c8307c90cbf44694d636f6ca6e6ebeb600b45765dd5ef6347185"}),
-    "StudyDescription": frozenset(
-        """ae84d27d259c61d655967e0758a2671999dd0deb733ef5de89749f041f609d24
-        b9a23605b1825e29372b043bc998e508e177042869c82e436e8fb274dbac84a4""".split()
-    ),
-    "StudyID": frozenset(
-        """b1c6d20d4da3f375a6ace10bbd196224f496001353a9e81110348209ecc85f78
-        f33ad84452593b3df8401571bb6ac99f173e40fa704b898c3cb48270171bff3b""".split()
-    ),
-    "TableTopEccentricRotationDirection": frozenset({"c627c09c14e58e44bc51622dac392958ec88244e414b508020634f53cfcd1e69"}),
-    "TissueHeterogeneityCorrection": frozenset({"556728f7f45600acafc8914a6b4f1d2bfb607385b1fe49e2c74e7ef657171dee"}),
-    "ToleranceTableLabel": frozenset({"ef915c05396a0b76088b564cc13439c3554c6d9aec732968dce72e315578d1d0"}),
-    "TreatmentDeliveryType": frozenset({"a41297525ca556ff593ce37b720994c8cc83c1fe4dcdfa803cca3420f01ff5f2"}),
-    "TreatmentMachineName": frozenset({"9e5c9e49d50dc679b79343cd97637865d05adca380d9ee92d8ba53dfd7571080"}),
-}
-
-
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def text_values(value: object) -> list[str]:
-    if isinstance(value, (MultiValue, list, tuple)):
-        return ["" if item is None else str(item).strip() for item in value]
-    if value is None:
-        return [""]
-    return [str(value).strip()]
-
-
-def text_fingerprint(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8", "surrogatepass")).hexdigest()
-
-
-def private_value_reference(value: object) -> str:
-    normalized = str(value).strip()
-    return f"length={len(normalized)} sha256={text_fingerprint(normalized)[:16]}"
-
-
-def opaque_value_reference(value: object) -> tuple[int, str]:
+    "StudyDescription": fçÎ­¢G§²ÚîÆ­yÞ tuple[int, str]:
     encoded = value if isinstance(value, bytes) else str(value).encode("utf-8", "surrogatepass")
     return len(encoded), hashlib.sha256(encoded).hexdigest()
 
@@ -373,7 +401,7 @@ def structured_text_is_allowed(vr: str, keyword: str, value: str) -> bool:
         if len(value) > 64 or not UI_PATTERN.fullmatch(value):
             return False
         return (
-            value.startswith("1.2.840.10008.")
+            value in UID_dictionary
             or value.startswith(PYDICOM_ROOT_UID)
             or (keyword == "InstanceCreatorUID" and value == VENDOR_INSTANCE_CREATOR_UID)
         )
@@ -451,6 +479,10 @@ def audit_text_elements(
             digest = text_fingerprint(value)
             if keyword in EXPECTED_IDENTITIES:
                 allowed = value in EXPECTED_IDENTITIES[keyword]
+            elif element.VR in {"DA", "DT", "TM"}:
+                allowed = digest in ALLOWED_TIMESTAMP_FINGERPRINTS.get(
+                    keyword, frozenset()
+                )
             elif element.VR in STRUCTURED_TEXT_VRS:
                 allowed = structured_text_is_allowed(element.VR, keyword, value)
             else:

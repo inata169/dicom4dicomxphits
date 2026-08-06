@@ -46,7 +46,6 @@ class TextAuditTests(unittest.TestCase):
     def test_allows_reviewed_text_and_structured_values(self) -> None:
         dataset = Dataset()
         dataset.PatientName = "ANONYMOUS"
-        dataset.StudyDate = "19000101"
         dataset.BurnedInAnnotation = "NO"
         dataset.PregnancyStatus = None
         dataset.SliceThickness = None
@@ -264,6 +263,35 @@ class TextAuditTests(unittest.TestCase):
         self.assertIn(audit_dicom.text_fingerprint(unapproved_uid)[:16], errors[0])
         self.assertIn("VR=UI", errors[0])
 
+    def test_rejects_unregistered_standard_root_uid(self) -> None:
+        unregistered_uid = "1.2.840.10008.999999999"
+        dataset = Dataset()
+        dataset.StudyInstanceUID = unregistered_uid
+
+        errors = self.audit(dataset)
+
+        self.assertEqual(1, len(errors))
+        self.assertNotIn(unregistered_uid, errors[0])
+        self.assertIn(
+            audit_dicom.text_fingerprint(unregistered_uid)[:16], errors[0]
+        )
+        self.assertIn("VR=UI", errors[0])
+
+    def test_rejects_unreviewed_clinical_timestamp(self) -> None:
+        unreviewed_date = "20250101"
+        dataset = Dataset()
+        dataset.StudyDate = unreviewed_date
+
+        errors = self.audit(dataset)
+
+        self.assertEqual(1, len(errors))
+        self.assertNotIn(unreviewed_date, errors[0])
+        self.assertIn(
+            audit_dicom.text_fingerprint(unreviewed_date)[:16], errors[0]
+        )
+        self.assertIn("keyword=StudyDate", errors[0])
+        self.assertIn("VR=DA", errors[0])
+
     def test_rejects_zero_padded_uid_component(self) -> None:
         self.assertFalse(
             audit_dicom.structured_text_is_allowed(
@@ -272,7 +300,7 @@ class TextAuditTests(unittest.TestCase):
         )
         self.assertTrue(
             audit_dicom.structured_text_is_allowed(
-                "UI", "SOPClassUID", "1.2.840.10008.1"
+                "UI", "SOPClassUID", str(CTImageStorage)
             )
         )
 
