@@ -10,8 +10,11 @@ import unittest
 from unittest.mock import patch
 import warnings
 
+import pydicom
 from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
+from pydicom.dataelem import RawDataElement
 from pydicom.sequence import Sequence
+from pydicom.tag import Tag
 from pydicom.uid import (
     CTImageStorage,
     ExplicitVRLittleEndian,
@@ -44,6 +47,7 @@ class TextAuditTests(unittest.TestCase):
         dataset = Dataset()
         dataset.PatientName = "ANONYMOUS"
         dataset.StudyDate = "19000101"
+        dataset.BurnedInAnnotation = "NO"
         dataset.SliceThickness = None
         dataset.SOPClassUID = CTImageStorage
         dataset.SOPInstanceUID = generate_uid()
@@ -135,6 +139,37 @@ class TextAuditTests(unittest.TestCase):
         self.assertIn("DICOM VR mismatch", errors[0])
         self.assertIn("keyword=InstitutionName", errors[0])
         self.assertIn("VR=DA expected=LO", errors[0])
+
+    def test_audits_trailing_element_without_loading_pixel_data(self) -> None:
+        with TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "trailing.dcm"
+            file_meta = FileMetaDataset()
+            file_meta.MediaStorageSOPClassUID = CTImageStorage
+            file_meta.MediaStorageSOPInstanceUID = generate_uid()
+            file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+            file_meta.ImplementationClassUID = PYDICOM_IMPLEMENTATION_UID
+            dataset = FileDataset(
+                str(path), {}, file_meta=file_meta, preamble=b"\0" * 128
+            )
+            dataset.SOPClassUID = file_meta.MediaStorageSOPClassUID
+            dataset.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
+            dataset.BitsAllocated = 16
+            dataset.PixelData = b"\0" * 2048
+            dataset.add_new((0x8000, 0x0010), "LO", SENTINEL)
+            dataset.save_as(path, write_like_original=False)
+
+            audited = pydicom.dcmread(path, defer_size=1)
+            raw_pixel_data = audited._dict[Tag(0x7FE0, 0x0010)]
+            self.assertIsInstance(raw_pixel_data, RawDataElement)
+            self.assertIsNone(raw_pixel_data.value)
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                errors = self.audit(audited)
+
+            self.assert_secret_is_redacted(errors)
+            self.assertIn("unknown public DICOM element", errors[0])
+            self.assertIs(audited._dict[Tag(0x7FE0, 0x0010)], raw_pixel_data)
 
     def test_rejects_unapproved_uid_root_without_disclosing_it(self) -> None:
         unapproved_uid = "1.3.6.1.4.1.55555.1"

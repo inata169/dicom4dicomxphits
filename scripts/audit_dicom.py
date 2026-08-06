@@ -14,12 +14,14 @@ import warnings
 import pydicom
 from pydicom.datadict import dictionary_VR
 from pydicom.multival import MultiValue
+from pydicom.tag import Tag
 from pydicom.uid import PYDICOM_ROOT_UID
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "MANIFEST.sha256"
 GITHUB_HARD_LIMIT = 100 * 1024 * 1024
+PIXEL_DATA_TAG = Tag(0x7FE00010)
 
 HUMAN_READABLE_VRS = {
     "AE",
@@ -119,6 +121,7 @@ ALLOWED_TEXT_FINGERPRINTS = {
     ),
     "BeamType": frozenset({"0e19f02ca15d6060d63dc1946cc784d739c69a4cc5e6ef266a50e3b58c673f35"}),
     "BodyPartExamined": frozenset({"c627c09c14e58e44bc51622dac392958ec88244e414b508020634f53cfcd1e69"}),
+    "BurnedInAnnotation": frozenset({"23794d91c53ae875c8e247d72561e35d9d06ee07c70c9e0dbcc977a6d161504a"}),
     "ConvolutionKernel": frozenset({"5df99372cd81a643bd203fc74e7bb655691ed5938bfbcef4fb6b45d10d8112ca"}),
     "DoseReferenceDescription": frozenset({"f6e0a1e2ac41945a9aa7ff8a8aaa0cebc12a3bcc981a929ad5cf810a090e11ae"}),
     "DoseReferenceStructureType": frozenset(
@@ -251,6 +254,20 @@ def expected_public_vrs(tag: object) -> frozenset[str] | None:
     return frozenset(part.strip() for part in vr_definition.split(" or "))
 
 
+def iter_elements_without_pixel_data(
+    dataset: pydicom.dataset.Dataset,
+):
+    """Yield all elements and nested items without materializing Pixel Data."""
+    for tag in dataset.keys():
+        if tag == PIXEL_DATA_TAG:
+            continue
+        element = dataset[tag]
+        yield element
+        if element.VR == "SQ":
+            for item in element.value:
+                yield from iter_elements_without_pixel_data(item)
+
+
 def valid_da(value: str) -> bool:
     if not DA_PATTERN.fullmatch(value):
         return False
@@ -346,7 +363,7 @@ def audit_text_elements(
     """Audit every textual element, including elements in nested sequences."""
     if seen is None:
         seen = set()
-    for element in dataset.iterall():
+    for element in iter_elements_without_pixel_data(dataset):
         keyword = element.keyword or "<unknown>"
         expected_vrs = None if element.tag.is_private else expected_public_vrs(element.tag)
         if not element.tag.is_private and expected_vrs is None:
@@ -456,7 +473,9 @@ def audit_repository(args: argparse.Namespace) -> int:
         if path.stat().st_size >= GITHUB_HARD_LIMIT:
             errors.append(f"file is at or above 100 MiB: {relative}")
         try:
-            dataset = pydicom.dcmread(path, stop_before_pixels=True)
+            # Parse through EOF so elements after Pixel Data cannot evade the
+            # audit. Large values are deferred, and traversal skips Pixel Data.
+            dataset = pydicom.dcmread(path, defer_size=1)
         except Exception as exc:
             errors.append(f"cannot parse {relative}: {type(exc).__name__}")
             continue
@@ -490,7 +509,7 @@ def audit_repository(args: argparse.Namespace) -> int:
         elif burned_in != "NO":
             errors.append(f"BurnedInAnnotation is not NO: {relative}")
 
-        for element in dataset.iterall():
+        for element in iter_elements_without_pixel_data(dataset):
             if element.tag.is_private:
                 errors.append(f"private DICOM element {element.tag}: {relative}")
             if 0x6000 <= element.tag.group <= 0x60FF:
