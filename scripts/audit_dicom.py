@@ -43,6 +43,7 @@ HUMAN_READABLE_VRS = {
     "UT",
 }
 STRUCTURED_TEXT_VRS = {"AS", "DA", "DS", "DT", "IS", "TM", "UI"}
+BULK_DATA_VRS = {"OB", "OD", "OF", "OL", "OV", "OW"}
 VENDOR_INSTANCE_CREATOR_UID = "2.16.840.1.114337"
 
 AS_PATTERN = re.compile(r"^\d{3}[DWMY]$")
@@ -74,12 +75,24 @@ MUST_BE_EMPTY = {
     "DeviceSerialNumber",
     "InstitutionAddress",
     "OperatorsName",
+    "LastMenstrualDate",
     "PatientAddress",
+    "PatientAge",
+    "PatientBirthTime",
+    "PatientBodyMassIndex",
+    "PatientSize",
     "PatientTelephoneNumbers",
+    "PatientWeight",
     "PerformingPhysicianName",
     "RequestingPhysician",
     "ResponsibleOrganization",
     "ResponsiblePerson",
+}
+
+ALLOWED_BULK_FINGERPRINTS = {
+    "FileMetaInformationVersion": frozenset(
+        {"b413f47d13ee2fe6c845b2ee141af81de858df4ec549a58b7970bb96645bc8d2"}
+    ),
 }
 
 # Full SHA-256 values keep reviewed fixture strings out of source and CI output.
@@ -389,13 +402,28 @@ def audit_text_elements(
                     f"sha256={digest[:16]}"
                 )
             continue
+        if element.VR in BULK_DATA_VRS:
+            length, digest = opaque_value_reference(element.value)
+            if digest in ALLOWED_BULK_FINGERPRINTS.get(keyword, frozenset()):
+                continue
+            finding = (relative, str(element.tag), keyword, element.VR, digest)
+            if finding not in seen:
+                seen.add(finding)
+                errors.append(
+                    f"unapproved DICOM bulk data: {relative}: tag={element.tag} "
+                    f"keyword={keyword} VR={element.VR} length={length} "
+                    f"sha256={digest[:16]}"
+                )
+            continue
         if element.VR not in HUMAN_READABLE_VRS:
             continue
         for value in text_values(element.value):
             if not value:
                 continue
             digest = text_fingerprint(value)
-            if keyword in EXPECTED_IDENTITIES:
+            if keyword in MUST_BE_EMPTY:
+                allowed = False
+            elif keyword in EXPECTED_IDENTITIES:
                 allowed = value in EXPECTED_IDENTITIES[keyword]
             elif element.VR in STRUCTURED_TEXT_VRS:
                 allowed = structured_text_is_allowed(element.VR, keyword, value)

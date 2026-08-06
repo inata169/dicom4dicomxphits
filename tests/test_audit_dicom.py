@@ -54,6 +54,10 @@ class TextAuditTests(unittest.TestCase):
 
         self.assertEqual([], self.audit(dataset))
 
+        file_meta = FileMetaDataset()
+        file_meta.FileMetaInformationVersion = b"\0\1"
+        self.assertEqual([], self.audit(file_meta))
+
     def test_department_policy_contains_only_reviewed_fingerprint(self) -> None:
         self.assertIn(
             REVIEWED_DEPARTMENT_FINGERPRINT,
@@ -106,6 +110,37 @@ class TextAuditTests(unittest.TestCase):
         )
         self.assertIn("keyword=PatientBirthDate", errors[0])
         self.assertIn("VR=DA", errors[0])
+
+    def test_rejects_structured_patient_characteristics(self) -> None:
+        for keyword, value, vr in (
+            ("PatientBirthTime", "123456", "TM"),
+            ("PatientAge", "037Y", "AS"),
+            ("PatientWeight", "72.5", "DS"),
+        ):
+            with self.subTest(keyword=keyword):
+                item = Dataset()
+                setattr(item, keyword, value)
+                dataset = Dataset()
+                dataset.OriginalAttributesSequence = Sequence([item])
+
+                errors = self.audit(dataset)
+
+                self.assertEqual(1, len(errors))
+                self.assertNotIn(value, errors[0])
+                self.assertIn(audit_dicom.text_fingerprint(value)[:16], errors[0])
+                self.assertIn(f"keyword={keyword}", errors[0])
+                self.assertIn(f"VR={vr}", errors[0])
+
+    def test_rejects_unreviewed_public_bulk_data(self) -> None:
+        dataset = Dataset()
+        dataset.EncapsulatedDocument = SENTINEL.encode("utf-8")
+
+        errors = self.audit(dataset)
+
+        self.assert_secret_is_redacted(errors)
+        self.assertIn("unapproved DICOM bulk data", errors[0])
+        self.assertIn("keyword=EncapsulatedDocument", errors[0])
+        self.assertIn("VR=OB", errors[0])
 
     def test_rejects_unreviewed_file_meta_text(self) -> None:
         file_meta = FileMetaDataset()
