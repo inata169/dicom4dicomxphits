@@ -106,6 +106,32 @@ class TextAuditTests(unittest.TestCase):
         self.assertIn(audit_dicom.text_fingerprint(unapproved_uid)[:16], errors[0])
         self.assertIn("VR=UI", errors[0])
 
+    def test_validates_calendar_and_clock_ranges(self) -> None:
+        for vr, value in (
+            ("DA", "20250229"),
+            ("DT", "20250231235959"),
+            ("DT", "20240229240000"),
+            ("DT", "20240229235959+1401"),
+            ("TM", "246000"),
+            ("TM", "235961"),
+        ):
+            with self.subTest(vr=vr, value=value):
+                self.assertFalse(
+                    audit_dicom.structured_text_is_allowed(vr, "Example", value)
+                )
+
+        for vr, value in (
+            ("DA", "20240229"),
+            ("DT", "2024"),
+            ("DT", "20240229235960-1200"),
+            ("TM", "23"),
+            ("TM", "235960.123456"),
+        ):
+            with self.subTest(vr=vr, value=value):
+                self.assertTrue(
+                    audit_dicom.structured_text_is_allowed(vr, "Example", value)
+                )
+
     def test_cli_output_does_not_disclose_unreviewed_value(self) -> None:
         with TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -125,7 +151,7 @@ class TextAuditTests(unittest.TestCase):
             dataset.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
             dataset.StudyInstanceUID = generate_uid()
             dataset.FrameOfReferenceUID = generate_uid()
-            dataset.Modality = "CT"
+            dataset.Modality = SENTINEL
             dataset.InstitutionalDepartmentName = SENTINEL
             dataset.save_as(path, write_like_original=False)
 

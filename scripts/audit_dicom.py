@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import hashlib
 import re
 from collections import Counter, defaultdict
@@ -51,6 +52,7 @@ DT_PATTERN = re.compile(
 IS_PATTERN = re.compile(r"^[+-]?\d+$")
 TM_PATTERN = re.compile(r"^\d{2}(?:\d{2}(?:\d{2}(?:\.\d{1,6})?)?)?$")
 UI_PATTERN = re.compile(r"^[0-9]+(?:\.[0-9]+)*$")
+EXPECTED_MODALITIES = Counter({"CT": 426, "RTDOSE": 20, "RTPLAN": 6})
 
 EXPECTED_IDENTITIES = {
     "PatientName": {"ANONYMOUS"},
@@ -234,19 +236,77 @@ def private_value_reference(value: object) -> str:
     return f"length={len(normalized)} sha256={text_fingerprint(normalized)[:16]}"
 
 
+def valid_da(value: str) -> bool:
+    if not DA_PATTERN.fullmatch(value):
+        return False
+    try:
+        date(int(value[:4]), int(value[4:6]), int(value[6:8]))
+    except ValueError:
+        return False
+    return True
+
+
+def valid_time_components(value: str) -> bool:
+    basic = value.split(".", 1)[0]
+    hour = int(basic[:2])
+    minute = int(basic[2:4]) if len(basic) >= 4 else 0
+    second = int(basic[4:6]) if len(basic) >= 6 else 0
+    return hour <= 23 and minute <= 59 and second <= 60
+
+
+def valid_dt(value: str) -> bool:
+    if len(value) > 26 or not DT_PATTERN.fullmatch(value):
+        return False
+
+    core = value
+    if len(core) >= 5 and core[-5] in "+-":
+        offset = core[-5:]
+        core = core[:-5]
+        offset_minutes = int(offset[1:3]) * 60 + int(offset[3:5])
+        if int(offset[3:5]) > 59:
+            return False
+        if offset[0] == "-":
+            offset_minutes = -offset_minutes
+        if not -12 * 60 <= offset_minutes <= 14 * 60:
+            return False
+
+    basic = core.split(".", 1)[0]
+    year = int(basic[:4])
+    if not 1 <= year <= 9999:
+        return False
+    if len(basic) >= 6 and not 1 <= int(basic[4:6]) <= 12:
+        return False
+    if len(basic) >= 8:
+        try:
+            date(year, int(basic[4:6]), int(basic[6:8]))
+        except ValueError:
+            return False
+    if len(basic) >= 10 and int(basic[8:10]) > 23:
+        return False
+    if len(basic) >= 12 and int(basic[10:12]) > 59:
+        return False
+    if len(basic) >= 14 and int(basic[12:14]) > 60:
+        return False
+    return True
+
+
 def structured_text_is_allowed(vr: str, keyword: str, value: str) -> bool:
     if vr == "AS":
         return bool(AS_PATTERN.fullmatch(value))
     if vr == "DA":
-        return bool(DA_PATTERN.fullmatch(value))
+        return valid_da(value)
     if vr == "DS":
         return len(value) <= 16 and bool(DS_PATTERN.fullmatch(value))
     if vr == "DT":
-        return len(value) <= 26 and bool(DT_PATTERN.fullmatch(value))
+        return valid_dt(value)
     if vr == "IS":
         return len(value) <= 12 and bool(IS_PATTERN.fullmatch(value))
     if vr == "TM":
-        return len(value) <= 16 and bool(TM_PATTERN.fullmatch(value))
+        return (
+            len(value) <= 16
+            and bool(TM_PATTERN.fullmatch(value))
+            and valid_time_components(value)
+        )
     if vr == "UI":
         if len(value) > 64 or not UI_PATTERN.fullmatch(value):
             return False
@@ -357,7 +417,8 @@ def main() -> int:
         audit_text_elements(dataset, relative, errors, seen_text_findings)
 
         modality = str(getattr(dataset, "Modality", ""))
-        modalities[modality] += 1
+        modality_key = modality if modality in EXPECTED_MODALITIES else "<unapproved>"
+        modalities[modality_key] += 1
         cases[path.relative_to(ROOT).parts[0]].append((path, dataset))
         sop_uid = str(getattr(dataset, "SOPInstanceUID", ""))
         if not sop_uid:
@@ -397,7 +458,7 @@ def main() -> int:
                     f"VR=PN {private_value_reference(element.value)}"
                 )
 
-    if modalities != Counter({"CT": 426, "RTDOSE": 20, "RTPLAN": 6}):
+    if modalities != EXPECTED_MODALITIES:
         errors.append(f"unexpected modality inventory: {dict(modalities)}")
 
     for case, records in sorted(cases.items()):
