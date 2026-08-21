@@ -36,14 +36,15 @@ Each case is self-contained:
 
 ```text
 <case>/
-├─ CT/
-│  ├─ CT000001.dcm
-│  └─ ...
+├─ CT000001.dcm
+├─ ...
 ├─ RTPLAN.dcm
-└─ RTDOSE/
-   ├─ RTDOSE_TOTAL.dcm  # total plan dose (DICOM DoseSummationType = PLAN)
-   └─ RTDOSE_BEAMnnn.dcm   # present in selected cases
+├─ RTDOSE_TOTAL.dcm  # total plan dose (DICOM DoseSummationType = PLAN)
+└─ RTDOSE_BEAMnnn.dcm  # present in selected cases
 ```
+
+All CT, RT Plan, and RT Dose files for a case are stored together directly in
+the case directory; there are no `CT` or `RTDOSE` subdirectories.
 
 | Case | CT | RT Plan | RT Dose | Purpose |
 | --- | ---: | ---: | ---: | --- |
@@ -61,15 +62,16 @@ the repository file names.
 
 ## Use with dicomxphits
 
-Clone this repository separately from `dicomxphits`. Select a case's `CT`
-directory and its `RTPLAN.dcm` in the guided Windows workflow, or pass them to
-the corresponding command-line adapter. Keep generated workspaces and licensed
-PHITS/RT-PHITS files outside both repositories.
+Clone this repository separately from `dicomxphits`. Select the case directory,
+which contains its CT series, `RTPLAN.dcm`, and RT Dose files, in the guided
+Windows workflow, or pass the case directory and plan to the corresponding
+command-line adapter. Keep generated workspaces and licensed PHITS/RT-PHITS
+files outside both repositories.
 
 Example paths:
 
 ```text
-<data-root>/WaterPhantom10x10/CT/
+<data-root>/WaterPhantom10x10/
 <data-root>/WaterPhantom10x10/RTPLAN.dcm
 ```
 

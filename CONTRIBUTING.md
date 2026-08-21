@@ -17,8 +17,8 @@ Before committing a new or changed DICOM set:
 4. Review direct identifiers, nested sequences, private elements, overlays, and
    representative pixels. De-identification is not proven by changing only
    `PatientName`.
-5. Keep one case per top-level directory using `CT/CTnnnnnn.dcm`,
-   `RTPLAN.dcm`, and `RTDOSE/RTDOSE_*.dcm` names.
+5. Keep one case per top-level directory, with `CTnnnnnn.dcm`, `RTPLAN.dcm`,
+   and `RTDOSE_*.dcm` stored together directly in that directory.
 6. Ensure each RT Dose references the RT Plan shipped in the same case and that
    Study and Frame of Reference UIDs remain internally consistent.
 7. Run:
